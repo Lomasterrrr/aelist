@@ -79,6 +79,8 @@ finish(int sig)
 	endwin();
 	if (ev)
 		free(ev);
+	while (psiz)
+		free(pv[--psiz]);
 	exit(0);
 }
 
@@ -150,14 +152,18 @@ exec(void)
 static void
 parsepath(void)
 {
-	char *p = getenv("PATH");
-	char *token = strtok(p, ":");
-	while (token) {
+	char *tmp = getenv("PATH");
+	char *p = (tmp) ? strdup(tmp) : NULL;
+	if (!p)
+		return;
+	tmp = strtok(p, ":");
+	while (tmp) {
 		if (psiz >= MAXPATHS)
-			return;
-		pv[psiz++] = token;
-		token = strtok(NULL, ":");
+			break;
+		pv[psiz++] = strdup(tmp);
+		tmp = strtok(NULL, ":");
 	}
+	free(p);
 }
 
 /*
@@ -182,7 +188,7 @@ search(char *in)
 
 	for (n = 0; n < evsiz && fi <= nprompt; n++) {
 		if (!strcmp(ev[n].name, in)) {
-			*last = ev[n];
+			last = &ev[n];
 			s = 1;
 		}
 
@@ -223,7 +229,7 @@ static void
 init(void)
 {
 	exe_t exe;
-	char buf[4096];
+	char buf[2048];
 	struct stat st;
 	struct dirent *d;
 	DIR *dir;
@@ -327,7 +333,6 @@ loop(void)
 int
 main(int c, char **av)
 {
-	char **ptr;
 	int n;
 
 	signal(SIGINT, finish);
@@ -403,20 +408,14 @@ main(int c, char **av)
 	}
 
 	c -= optind;
-	psiz += c;
-
-	if (psiz <= 0 || Pflag)
-		parsepath();
-	if (psiz > MAXPATHS) {
-		fprintf(stderr, "Too many paths!\n");
-		finish(0);
-	}
-
 	av += optind;
-	ptr = pv;
 
-	while (c--)
-		*ptr++ = *av++;
+	while (c-- > 0 && psiz < MAXPATHS)
+		pv[psiz++] = strdup(*av++);
+	if (psiz < MAXPATHS && (psiz == 0 || Pflag))
+		parsepath();
+	if (psiz >= MAXPATHS)
+		fprintf(stderr, "MAXPATHS limit reached\n");
 
 	init();
 	initscr();

@@ -311,11 +311,17 @@ loop(void)
 			}
 			break;
 		default:
-			if (n < sizeof(in) - 1) {
-				in[n++] = c;
-				addch(c);
+			/* is valid char ? */
+			if (c >= 0 && c <= UCHAR_MAX &&
+			    (isalnum((uint8_t)c) || c == '.' || c == '_' ||
+				c == '-')) {
+				if (n < sizeof(in) - 1) {
+					in[n++] = c;
+					addch(c);
+					break;
+				}
 			}
-			break;
+			continue;
 		}
 		in[n] = 0;
 		search(in);
